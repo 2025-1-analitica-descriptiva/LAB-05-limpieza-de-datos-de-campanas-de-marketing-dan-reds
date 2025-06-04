@@ -49,6 +49,60 @@ def clean_campaign_data():
 
 
     """
+    import pandas as pd
+    import zipfile
+
+    # Definimos las columnas que debe contener cada dataframe
+    cliente_cols = ['client_id', 'age', 'job', 'marital', 'education', 'credit_default', 'mortgage']
+    campaign_cols = ['client_id', 'number_contacts', 'contact_duration', 'previous_campaign_contacts',
+                    'previous_outcome', 'campaign_outcome']
+    economics_cols = ['client_id', 'cons_price_idx', 'euribor_three_months']
+
+    # Acumuladores para cada tipo de tabla
+    clientes_totales = []
+    campaigns_totales = []
+    economics_totales = []
+
+    for i in range(10):
+        ruta_zip = f'./files/input/bank-marketing-campaing-{i}.csv.zip'
+        
+        with zipfile.ZipFile(ruta_zip, 'r') as z:
+            with z.open(f'bank_marketing_{i}.csv') as f:
+                df = pd.read_csv(f)
+
+                # --- cliente.csv ---
+                cliente = df[cliente_cols].copy()
+                cliente['job'] = cliente['job'].str.replace('.', '', regex=False).str.replace('-', '_', regex=False)
+                cliente['education'] = cliente['education'].str.replace('.', '_', regex=False)
+                cliente['education'] = cliente['education'].replace("unknown", pd.NA)
+                cliente['credit_default'] = cliente['credit_default'].map(lambda x: 1 if x == 'yes' else 0)
+                cliente['mortgage'] = cliente['mortgage'].map(lambda x: 1 if x == 'yes' else 0)
+                clientes_totales.append(cliente)
+
+                # --- campaign.csv ---
+                campaign = df[campaign_cols].copy()
+                campaign['previous_outcome'] = campaign['previous_outcome'].map(lambda x: 1 if x == 'success' else 0)
+                campaign['campaign_outcome'] = campaign['campaign_outcome'].map(lambda x: 1 if x == 'yes' else 0)
+                df['month'] = df['month'].str.capitalize()
+                df['day'] = df['day'].astype(str)
+
+                # Crear fecha en formato YYYY-MM-DD
+                campaign['last_contact_date'] = pd.to_datetime(
+                    '2022-' + df['month'] + '-' + df['day'],
+                    format='%Y-%b-%d',
+                    errors='coerce'
+                ).dt.strftime('%Y-%m-%d')
+
+                campaigns_totales.append(campaign)
+
+                # --- economics.csv ---
+                economics = df[economics_cols].copy()
+                economics_totales.append(economics)
+
+    # --- Exportar archivos combinados ---
+    pd.concat(clientes_totales, ignore_index=True).to_csv('./files/output/client.csv', index=False, encoding='utf-8')
+    pd.concat(campaigns_totales, ignore_index=True).to_csv('./files/output/campaign.csv', index=False, encoding='utf-8')
+    pd.concat(economics_totales, ignore_index=True).to_csv('./files/output/economics.csv', index=False, encoding='utf-8')
 
     return
 
